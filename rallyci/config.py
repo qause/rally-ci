@@ -14,6 +14,7 @@
 
 import importlib
 import logging
+import logging.config
 import yaml
 
 LOG = logging.getLogger(__name__)
@@ -28,12 +29,15 @@ class Config:
         self.data = {}
         with open(filename, "rb") as cf:
             self.raw_data = yaml.safe_load(cf)
+
         for item in self.raw_data:
             if len(item.keys()) > 1:
                 raise ValueError("Invalid config entry %s" % item)
             key = list(item.keys())[0]
             value = list(item.values())[0]
             name = value.get("name")
+            if key == "logging":
+                self.configure_logging(value)
             if name:
                 self.data.setdefault(key, {})
                 if name in self.data[key]:
@@ -66,3 +70,53 @@ class Config:
             module = importlib.import_module(name)
             self._modules[name] = module
         return module
+
+    def configure_logging(self, section):
+        loglevel = section['level']
+
+        if loglevel == "debug":
+            LOGGING['handlers']['rotate_file']['filename'] = "/var/log/rally-ci/debug.log"
+        elif loglevel == "info":
+            LOGGING['handlers']['rotate_file']['filename'] = "/var/log/rally-ci/rally-ci.log"
+        elif loglevel == "error":
+            LOGGING['handlers']['rotate_file']['filename'] = "/var/log/rally-ci/error.log"
+        else:
+            raise ValueError("Unknown logging level")
+
+        logging.config.dictConfig(LOGGING)
+
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {
+            "format": "%(asctime)s %(name)s:"
+                      "%(levelname)s: %(message)s "
+                      "(%(filename)s:%(lineno)d)",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        }
+    },
+    "handlers": {
+        "console": {
+            "level": "DEBUG",
+            "formatter": "standard",
+            "class": "logging.StreamHandler",
+        },
+        "rotate_file": {
+            "level": "DEBUG",
+            "formatter": "standard",
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": "/dev/null",
+            "encoding": "utf-8",
+            "maxBytes": 10000000,
+            "backupCount": 128,
+        }
+    },
+    "loggers": {
+        "": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+        },
+    }
+}

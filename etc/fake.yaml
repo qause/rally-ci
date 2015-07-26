@@ -25,3 +25,6 @@
     name: openstack/rally
     jobs:
       - noop
+
+- logging:
+   level: debug
