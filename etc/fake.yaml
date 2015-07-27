@@ -27,4 +27,6 @@
       - noop
 
 - logging:
-   level: debug
+   debug: /var/log/rally-ci/debug.log
+   info: /var/log/rally-ci/rally-ci.log
+   error: /var/log/rally-ci/error.log

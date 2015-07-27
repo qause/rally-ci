@@ -21,7 +21,6 @@ LOG = logging.getLogger(__name__)
 
 
 class Config:
-
     def __init__(self, root, filename):
         self.root = root
         self.filename = filename
@@ -72,16 +71,21 @@ class Config:
         return module
 
     def configure_logging(self, section):
-        loglevel = section['level']
+        def _get_handler(key, value):
+            return {'level': key.upper(), 'filename': value}
 
-        if loglevel == "debug":
-            LOGGING['handlers']['rotate_file']['filename'] = "/var/log/rally-ci/debug.log"
-        elif loglevel == "info":
-            LOGGING['handlers']['rotate_file']['filename'] = "/var/log/rally-ci/rally-ci.log"
-        elif loglevel == "error":
-            LOGGING['handlers']['rotate_file']['filename'] = "/var/log/rally-ci/error.log"
-        else:
-            raise ValueError("Unknown logging level")
+        default_log = {
+            'debug': _get_handler,
+            'error': _get_handler,
+            'info': _get_handler,
+        }
+
+        if section:
+            for key in section.keys():
+                if key in default_log.keys():
+                    LOGGING["handlers"][key].update(default_log[key](key, section[key]))
+                else:
+                    raise ValueError("Unknown logging level")
 
         logging.config.dictConfig(LOGGING)
 
@@ -98,25 +102,35 @@ LOGGING = {
         }
     },
     "handlers": {
-        "console": {
-            "level": "DEBUG",
-            "formatter": "standard",
-            "class": "logging.StreamHandler",
+        'console': {
+            'class': 'logging.StreamHandler',
+            'level': 'INFO',
+            'formatter': 'standard',
+            'stream': 'ext://sys.stdout',
         },
-        "rotate_file": {
+        "debug": {
             "level": "DEBUG",
             "formatter": "standard",
             "class": "logging.handlers.RotatingFileHandler",
-            "filename": "/dev/null",
-            "encoding": "utf-8",
-            "maxBytes": 10000000,
-            "backupCount": 128,
-        }
+            "filename": "debug.log"
+        },
+        "info": {
+            "level": "INFO",
+            "formatter": "standard",
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": "info.log"
+        },
+        "error": {
+            "level": "ERROR",
+            "formatter": "standard",
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": "error.log"
+        },
     },
     "loggers": {
         "": {
-            "handlers": ["console"],
-            "level": "DEBUG",
-        },
+            "handlers": ["info", "debug", "error"],
+            'level': 'DEBUG'
+        }
     }
 }
