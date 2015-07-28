@@ -72,7 +72,7 @@ class Config:
 
     def configure_logging(self, section):
         def _get_handler(key, value):
-            return {'level': key.upper(), 'filename': value, "class": "logging.handlers.RotatingFileHandler"}
+            return {'level': key.upper(), 'filename': value, "class": "logging.handlers.RotatingFileHandler", 'formatter': 'standard'}
 
         default_log = {
             'debug': _get_handler,
@@ -83,10 +83,13 @@ class Config:
         if section:
             for key in section.keys():
                 if key in default_log.keys():
-                    LOGGING["handlers"][key].update(default_log[key](key, section[key]))
-                    del LOGGING["handlers"][key]['stream']
+                    LOGGING["handlers"][key] = default_log[key](key, section[key])
+                    LOGGING["loggers"][""]["handlers"].append(key)
                 else:
                     raise ValueError("Unknown logging level")
+
+        if len(LOGGING["loggers"][""]["handlers"]) > 3:
+            LOGGING["loggers"][""]["handlers"].remove("console")
 
         logging.config.dictConfig(LOGGING)
 
@@ -109,28 +112,10 @@ LOGGING = {
             'formatter': 'standard',
             'stream': 'ext://sys.stdout',
         },
-        "debug": {
-            "level": "DEBUG",
-            "formatter": "standard",
-            'class': 'logging.StreamHandler',
-            'stream': 'ext://sys.stdout',
-        },
-        "info": {
-            "level": "INFO",
-            "formatter": "standard",
-            'class': 'logging.StreamHandler',
-            'stream': 'ext://sys.stdout',
-        },
-        "error": {
-            "level": "ERROR",
-            "formatter": "standard",
-            'class': 'logging.StreamHandler',
-            'stream': 'ext://sys.stdout',
-        },
     },
     "loggers": {
         "": {
-            "handlers": ["info", "debug", "error"],
+            "handlers": ["console"],
             'level': 'DEBUG'
         }
     }
