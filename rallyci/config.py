@@ -72,7 +72,12 @@ class Config:
 
     def configure_logging(self, section):
         def _get_handler(key, value):
-            return {'level': key.upper(), 'filename': value, "class": "logging.handlers.RotatingFileHandler", 'formatter': 'standard'}
+            return {
+                    'level': key.upper(),
+                    'filename': value,
+                    "class": "logging.handlers.RotatingFileHandler",
+                    'formatter': 'standard'
+                    }
 
         default_log = {
             'debug': _get_handler,
@@ -81,15 +86,12 @@ class Config:
         }
 
         if section:
-            for key in section.keys():
-                if key in default_log.keys():
+            for key in section:
+                if key in default_log.get(key):
                     LOGGING["handlers"][key] = default_log[key](key, section[key])
                     LOGGING["loggers"][""]["handlers"].append(key)
                 else:
                     raise ValueError("Unknown logging level")
-
-        if len(LOGGING["loggers"][""]["handlers"]) > 3:
-            LOGGING["loggers"][""]["handlers"].remove("console")
 
         logging.config.dictConfig(LOGGING)
 
