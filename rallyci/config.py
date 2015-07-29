@@ -71,18 +71,44 @@ class Config:
         return module
 
     def configure_logging(self, section):
+        LOGGING = {
+            "version": 1,
+            "formatters": {
+                "standard": {
+                    "format": "%(asctime)s %(name)s:"
+                              "%(levelname)s: %(message)s "
+                              "(%(filename)s:%(lineno)d)",
+                    "datefmt": "%Y-%m-%d %H:%M:%S",
+                }
+            },
+            "handlers": {
+                "console": {
+                    "class": "logging.StreamHandler",
+                    "level": "INFO",
+                    "formatter": "standard",
+                    "stream": "ext://sys.stdout",
+                },
+            },
+            "loggers": {
+                "": {
+                    "handlers": ["console"],
+                    "level": "DEBUG"
+                }
+            }
+        }
+
         def _get_handler(key, value):
             return {
-                    'level': key.upper(),
-                    'filename': value,
-                    "class": "logging.handlers.RotatingFileHandler",
-                    'formatter': 'standard'
-                    }
+                "level": key.upper(),
+                "filename": value,
+                "class": "logging.handlers.RotatingFileHandler",
+                "formatter": "standard"
+            }
 
         default_log = {
-            'debug': _get_handler,
-            'error': _get_handler,
-            'info': _get_handler,
+            "debug": _get_handler,
+            "error": _get_handler,
+            "info": _get_handler,
         }
 
         if section:
@@ -94,31 +120,3 @@ class Config:
                     raise ValueError("Unknown logging level")
 
         logging.config.dictConfig(LOGGING)
-
-
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "standard": {
-            "format": "%(asctime)s %(name)s:"
-                      "%(levelname)s: %(message)s "
-                      "(%(filename)s:%(lineno)d)",
-            "datefmt": "%Y-%m-%d %H:%M:%S",
-        }
-    },
-    "handlers": {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'level': 'INFO',
-            'formatter': 'standard',
-            'stream': 'ext://sys.stdout',
-        },
-    },
-    "loggers": {
-        "": {
-            "handlers": ["console"],
-            'level': 'DEBUG'
-        }
-    }
-}
