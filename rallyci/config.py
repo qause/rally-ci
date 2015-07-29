@@ -35,8 +35,6 @@ class Config:
             key = list(item.keys())[0]
             value = list(item.values())[0]
             name = value.get("name")
-            if key == "logging":
-                self.configure_logging(value)
             if name:
                 self.data.setdefault(key, {})
                 if name in self.data[key]:
@@ -45,6 +43,8 @@ class Config:
             else:
                 self.data.setdefault(key, [])
                 self.data[key].append(value)
+
+        self._configure_logging()
 
     def get_instance(self, cfg):
         return self._get_module(cfg["module"]).Class(cfg)
@@ -70,7 +70,7 @@ class Config:
             self._modules[name] = module
         return module
 
-    def configure_logging(self, section):
+    def _configure_logging(self):
         LOGGING = {
             "version": 1,
             "formatters": {
@@ -96,6 +96,7 @@ class Config:
                 }
             }
         }
+        section = self.data.get("logging")
 
         def _get_handler(key, value):
             return {
@@ -112,8 +113,8 @@ class Config:
         }
 
         if section:
-            for key in section:
-                if key in default_log.get(key):
+            for key in section[0]:
+                if default_log.get(key):
                     LOGGING["handlers"][key] = default_log[key](key, section[key])
                     LOGGING["loggers"][""]["handlers"].append(key)
                 else:
