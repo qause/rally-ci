@@ -84,7 +84,7 @@ class Config:
             "handlers": {
                 "console": {
                     "class": "logging.StreamHandler",
-                    "level": "INFO",
+                    "level": "DEBUG",
                     "formatter": "standard",
                     "stream": "ext://sys.stdout",
                 },
@@ -121,3 +121,4 @@ class Config:
                     raise ValueError("Unknown logging level")
 
         logging.config.dictConfig(LOGGING)
+        print("LOG SETTINGS COMPLETE")
