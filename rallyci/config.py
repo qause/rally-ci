@@ -96,7 +96,6 @@ class Config:
                 }
             }
         }
-        section = self.data.get("logging")
 
         def _get_handler(key, value):
             return {
@@ -112,8 +111,9 @@ class Config:
             "info": _get_handler,
         }
 
-        if section:
-            for key in section[0]:
+        if self.data.get("logging"):
+            section = self.data.get("logging")[0]
+            for key in section:
                 if default_log.get(key):
                     LOGGING["handlers"][key] = default_log[key](key, section[key])
                     LOGGING["loggers"][""]["handlers"].append(key)
