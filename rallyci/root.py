@@ -50,9 +50,8 @@ class Root:
         self.services = []
         self.providers = {}
 
-    def load_config(self, filename):
-        self.filename = filename
-        self.config = Config(self, filename)
+    def load_config(self):
+        self.config = Config(self)
         self.start()
 
     def start(self):
@@ -64,7 +63,7 @@ class Root:
 
     def reload(self):
         try:
-            new_config = Config(self.filename)
+            new_config = Config(self)
         except Exception:
             LOG.exception("Error loading new config")
             return

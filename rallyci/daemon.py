@@ -24,13 +24,9 @@ LOG = logging.getLogger(__name__)
 
 
 def run():
-    if len(sys.argv) < 2:
-        print("Usage\n\t%s <config.yaml>\n\n" % sys.argv[0])
-        sys.exit(1)
-    config = sys.argv[1]
     loop = asyncio.get_event_loop()
     r = root.Root(loop)
-    r.load_config(config)
+    r.load_config()
     for signame in ("SIGINT", ):
         loop.add_signal_handler(getattr(signal, signame),
                                 asyncio.async, r.stop())
