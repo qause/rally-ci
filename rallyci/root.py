@@ -100,6 +100,6 @@ class Root:
         self.stop_services(True)
         self.loop.stop()
 
-    def _get_daemon_statistics(self):
+    def get_daemon_statistics(self):
         usage = resource.getrusage(resource.RUSAGE_SELF)
         return {"type": "daemon-statistics", "memory-used": getattr(usage, "ru_maxrss")}

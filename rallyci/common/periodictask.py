@@ -25,11 +25,7 @@ class PeriodicTask(object):
         self._loop = asyncio.get_event_loop()
 
     def _run(self):
-        self.run()
-        self._handler = self._loop.call_later(self._interval, self._run)
-
-    def run(self):
-        self.method()
+        self._handler = self._loop.call_later(self._interval, self.method)
 
     def start(self):
         self._handler = self._loop.call_later(self._interval, self._run)
