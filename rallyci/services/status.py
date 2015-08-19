@@ -16,7 +16,7 @@ import asyncio
 import logging
 import os.path
 import json
-import rallyci.common.ptask as ptask
+import rallyci.common.periodictask as ptask
 import aiohttp
 from aiohttp import web
 
@@ -29,7 +29,7 @@ class Class:
     def __init__(self, **config):
         self.config = config
         self.clients = []
-        self._periodic_task = ptask.PeriodicTask(2, self._send_all)
+        self._periodic_task = ptask.PeriodicTask(2, self._send_daemon_statistic)
 
     @asyncio.coroutine
     def index(self, request):
@@ -77,6 +77,11 @@ class Class:
 
     def _task_finished_cb(self, event):
         self._send_all({"type": "task-finished", "id": event.id})
+
+    def _send_daemon_statistic(self):
+        stat = self.root._get_daemon_statistics()
+        LOG.debug(stat)
+        self._send_all(stat)
 
     @asyncio.coroutine
     def run(self):
