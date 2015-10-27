@@ -13,8 +13,9 @@
 #    limitations under the License.
 
 import asyncio
+from concurrent import futures
 import time
-import os.path
+import os
 import string
 
 from rallyci import utils
@@ -36,6 +37,7 @@ def _get_valid_filename(name):
 
 
 class Job:
+
     def __init__(self, event, name):
         self.voting = True
         self.error = 254 # FIXME
@@ -44,65 +46,59 @@ class Job:
         self.name = name
         self.root = event.root
         self.config = event.root.config.data["job"][name]
-        self.id = utils.get_rnd_name(prefix="", length=10)
-        self.stream_number = 0
+        self.timeout = self.config.get("timeout", 90) * 60
+        self.id = utils.get_rnd_name("JOB", length=10)
         self.env = self.config.get("env", {}).copy()
-        self.log_path = os.path.join(self.event.id, self.id)
-        self.loggers = []
-        self.status = "queued"
+        self.status = "__init__"
+        self.finished_at = 0
+        self.log_path = os.path.join(self.event.id, self.name)
         LOG.debug("Job %s initialized." % self.id)
 
-    def logger(self, data):
-        """Process script stdout+stderr."""
-        for logger in self.loggers:
-            logger.log(data)
+    def __str__(self):
+        return "<Job %s(%s) [%s]>" % (self.name, self.status, self.id)
+
+    def __repr__(self):
+        return self.__str__()
 
     def set_status(self, status):
-        self.stream_number += 1
-        for logger in self.loggers:
-            logger.set_stream(self,
-                              "%02d-%s.txt" % (self.stream_number,
-                                               _get_valid_filename(status)))
         self.status = status
         self.root.job_updated(self)
 
     @asyncio.coroutine
     def run(self):
+        LOG.info("Starting %s (timeout: %s)" % (self, self.timeout))
+        self.set_status("queued")
+        self.started_at = time.time()
+        runner_local_cfg = self.config["runner"]
+        runner_cfg = self.root.config.data["runner"][runner_local_cfg["name"]]
+        self.runner = self.root.config.get_instance(runner_cfg, self,
+                                                    runner_local_cfg)
+        fut = asyncio.async(self.runner.run())
         try:
-            self.started_at = time.time()
-            yield from self._run()
+            self.error = yield from asyncio.wait_for(fut, timeout=self.timeout)
+            self.set_status("FAILURE" if self.error else "SUCCESS")
+        except asyncio.TimeoutError:
+            self.set_status("TIMEOUT")
+            LOG.info("Timed out %s" % self)
+        except asyncio.CancelledError:
+            self.set_status("CANCELLED")
+            LOG.debug("Cancelled %s" % self)
         except Exception:
-            LOG.exception("Error running job %s" % self.id)
-            self.error = 254
+            self.set_status("ERROR")
+            LOG.exception("Error running %s" % self)
         finally:
             self.finished_at = time.time()
-        while self.loggers:
-            logger = self.loggers.pop()
-            try:
-                logger.cleanup()
-            except Exception:
-                LOG.exception("Error while logger cleanup")
+        LOG.info("Finished %s" % self)
 
     @asyncio.coroutine
-    def _run(self):
-        self.set_status("queued")
-        # TODO: env
-        self.runner = self.root.config.get_instance(self.config["runner"])
-        LOG.debug("Runner initialized %r for job %r" % (self.runner, self))
-        try:
-            self.error = yield from self.runner.run(self)
-        except:
-            LOG.exception("Unhandled exception in job %s" % self)
-            self.error = 1
-        self.finished_at = int(time.time())
-        LOG.debug("Finished job %s." % self)
-        LOG.debug("Starting cleanup for job %s" % self)
+    def cleanup(self):
         yield from self.runner.cleanup()
-        LOG.debug("Finished cleanup for job %s" % self)
 
     def to_dict(self):
         return {"id": self.id,
                 "name": self.name,
                 "status": self.status,
+                "task": self.event.id,
+                "finished_at": self.finished_at,
                 "seconds": int(time.time()) - self.queued_at,
                 }

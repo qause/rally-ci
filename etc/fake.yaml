@@ -1,23 +1,27 @@
 ---
 
-- stream:
-    name: openstack
-    module: rallyci.streams.gerrit
+- service:
+    name: fake-stream
+    module: rallyci.services.gerrit
     fake-stream: resources/gerrit-sample-stream.json
 
 - service:
     name: http_status
     module: rallyci.services.status
-    listen: ["localhost", 8080]
-    interval: 60
+    stats-interval: 2
+    listen: ["0.0.0.0", 8088]
+
+- runner:
+    name: fake
+    module: rallyci.runners.fake
+    sleep-run: [1, 2]
 
 - job:
     name: noop
     env:
       key: val
     runner:
-      module: rallyci.runners.fake
-      sleep-run: [1, 2]
+      name: fake
 
 - project:
     name: openstack-dev/ci-sandbox
@@ -28,8 +32,3 @@
     name: openstack/rally
     jobs:
       - noop
-
-- logging:
-   debug: /var/log/rally-ci/debug.log
-   info: /var/log/rally-ci/rally-ci.log
-   error: /var/log/rally-ci/error.log

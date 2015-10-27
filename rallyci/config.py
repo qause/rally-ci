@@ -18,7 +18,6 @@ import logging.config
 import yaml
 import argparse
 
-
 LOG = logging.getLogger(__name__)
 
 
@@ -52,14 +51,14 @@ class Config:
 
         self._configure_logging()
 
-    def get_instance(self, cfg):
-        return self._get_module(cfg["module"]).Class(cfg)
+    def get_instance(self, cfg, *args, **kwargs):
+        return self._get_module(cfg["module"]).Class(cfg, *args, **kwargs)
 
     def iter_instances(self, section):
         section = self.data.get(section, {})
         for config in section.values():
             cls = self._get_module(config["module"]).Class
-            yield cls(**config)
+            yield cls(self.root, **config)
 
     def iter_providers(self):
         for cfg in self.data.get("provider", {}).values():

@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -12,20 +11,26 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-from rallyci import root
 
-import asyncio
-import sys
-import signal
-import logging
+import urllib
+from urllib import request
 
-
-LOG = logging.getLogger(__name__)
+from tests.integrated import base
 
 
-def run():
-    loop = asyncio.get_event_loop()
-    r = root.Root(loop)
-    loop.add_signal_handler(signal.SIGINT, r.stop_event.set)
-    r.load_config()
-    loop.run_until_complete(r.run())
+class StatusTestCase(base.IntegrationTest):
+
+    def _get_config(self):
+        port = base.get_free_port()
+        self.url = "http://localhost:%s" % port
+        conf = {
+                "service": {
+                    "name": "status",
+                    "module": "rallyci.services.status",
+                    "listen": ["localhost", port],
+                }
+        }
+        return [[conf], [port]]
+
+    def test_index(self):
+        r = request.urlopen(self.url)

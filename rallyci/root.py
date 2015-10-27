@@ -17,88 +17,97 @@ from concurrent import futures
 import logging
 import resource
 from rallyci.config import Config
-
-LOG = logging.getLogger(__name__)
-
+import time
 
 class Root:
     def __init__(self, loop):
+        self._running_objects = {}
+        self._running_cleanups = []
+
         self.tasks = {}
         self.loop = loop
-        self.services = []
         self.providers = {}
         self.task_start_handlers = []
         self.task_end_handlers = []
         self.job_update_handlers = []
+        self.stop_event = asyncio.Event()
 
-    def start_streams(self):
-        for stream in self.config.iter_instances("stream"):
-            self.services.append(stream)
-            stream.start(self)
+    @asyncio.coroutine
+    def run_obj(self, obj):
+        try:
+            self.log.debug("Running obj %s" % obj)
+            yield from obj.run()
+        except asyncio.CancelledError:
+            self.log.info("Cancelled %s" % obj)
+        except Exception:
+            self.log.exception("Exception running %s" % obj)
+
+    def start_task(self, task):
+        for cb in self.task_start_handlers:
+            cb(task)
+        fut = self.start_obj(task)
+        self.tasks[fut] = task
+        fut.add_done_callback(self.tasks.pop)
+
+    def start_obj(self, obj):
+        fut = asyncio.async(self.run_obj(obj), loop=self.loop)
+        fut.add_done_callback(self.schedule_cleanup)
+        self._running_objects[fut] = obj
+        return fut
+
+    @asyncio.coroutine
+    def run_cleanup(self, obj):
+        try:
+            yield from obj.cleanup()
+        except Exception:
+            self.log.exception("Exception in cleanup %s" % obj)
+
+    def schedule_cleanup(self, fut):
+        obj = self._running_objects.pop(fut)
+        fut = asyncio.async(self.run_cleanup(obj), loop=self.loop)
+        self._running_cleanups.append(fut)
 
     def start_services(self):
         for service in self.config.iter_instances("service"):
-            self.services.append(service)
-            service.start(self)
-
-    def stop_services(self, wait=False):
-        fs = []
-        for service in self.services + list(self.providers.values()):
-            fs.append(service.stop())
-        if wait and fs:
-            asyncio.wait(fs, return_when=futures.ALL_COMPLETED)
-        self.services = []
-        self.providers = {}
+            self.start_obj(service)
 
     def load_config(self):
         self.config = Config(self)
-        self.start()
+        self.log = logging.getLogger(__name__)
 
-    def start(self):
-        self.start_streams()
+    @asyncio.coroutine
+    def wait_fs(self, fs):
+        """Wait for futures.
+
+        :param fs: dict where key is future and value is related object
+        """
+        self.log.debug("Waiting for %s" % fs.values())
+        while fs:
+            done, pending = yield from asyncio.wait(
+                    list(fs.keys()), return_when=futures.FIRST_COMPLETED)
+            for fut in done:
+                if fut in fs:
+                    del(fs[fut])
+
+    @asyncio.coroutine
+    def run(self):
         self.start_services()
         for prov in self.config.iter_providers():
             self.providers[prov.name] = prov
             prov.start()
-
-    def reload(self):
-        try:
-            new_config = Config(self)
-        except Exception:
-            LOG.exception("Error loading new config")
-            return
-        self.stop_services()
-        self.config = new_config
-        self.start()
-
-    def task_done(self, future):
-        task = self.tasks[future]
-        LOG.debug("Completed task: %s" % task)
-        for cb in self.task_end_handlers:
-            cb(task)
-        del (self.tasks[future])
+        yield from self.stop_event.wait()
+        self.log.info("Interrupted.")
+        for obj in self._running_objects:
+            obj.cancel()
+        yield from self.wait_fs(self._running_objects)
+        if self._running_cleanups:
+            yield from asyncio.wait(self._running_cleanups,
+                                    return_when=futures.ALL_COMPLETED)
+        self.loop.stop()
 
     def job_updated(self, job):
         for cb in self.job_update_handlers:
             cb(job)
-
-    def handle(self, event):
-        future = asyncio.async(event.run_jobs(), loop=self.loop)
-        self.tasks[future] = event
-        future.add_done_callback(self.task_done)
-        for cb in self.task_start_handlers:
-            cb(event)
-
-    def stop(self):
-        LOG.info("Interrupted.")
-        self.stop_services(True)
-        tasks = list(self.tasks.keys())
-        if tasks:
-            LOG.info("Waiting for tasks %r." % tasks)
-            yield from asyncio.gather(*tasks, return_exceptions=True)
-            LOG.info("All tasks finished.")
-        self.stop_services(True)
-        self.loop.stop()
 
     def get_daemon_statistics(self):
         usage = resource.getrusage(resource.RUSAGE_SELF)
