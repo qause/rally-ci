@@ -59,10 +59,12 @@ class Class:
 
     @asyncio.coroutine
     def cleanup(self):
-        self.logfile.close()
         for vm in self.vms:
+            for post in vm.local_cfg.get("post", []):
+                    yield from vm.run_script(post, cb=self.cb, env=self.job.env)
             for src, dst in vm.local_cfg.get("scp", []):
                 dst = os.path.join(self.log_path, dst)
                 ssh = yield from vm.get_ssh()
                 yield from ssh.scp_get(src, dst)
         yield from self.prov.cleanup(self.vms)
+        self.logfile.close()

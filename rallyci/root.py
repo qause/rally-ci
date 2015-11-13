@@ -33,8 +33,8 @@ class Root:
         self.task_start_handlers = []
         self.task_end_handlers = []
         self.job_update_handlers = []
-        self.stop_event = asyncio.Event()
-        self.reload_event = asyncio.Event()
+        self.stop_event = asyncio.Event(loop=self.loop)
+        self.reload_event = asyncio.Event(loop=self.loop)
 
     @asyncio.coroutine
     def run_obj(self, obj):

@@ -26,7 +26,7 @@ class RootTestCase(unittest.TestCase):
         self._timeout = self.loop.call_later(timeout, self.loop.stop)
 
     def setUp(self):
-        self.loop = asyncio.get_event_loop()
+        self.loop = asyncio.new_event_loop()
         self.set_timeout(1)
 
     def tearDown(self):
