@@ -61,7 +61,7 @@ class Class:
     def cleanup(self):
         for vm in self.vms:
             for post in vm.local_cfg.get("post", []):
-                    yield from vm.run_script(post, cb=self.cb, env=self.job.env)
+                vm.run_script(post, cb=self.cb, env=self.job.env)
             for src, dst in vm.local_cfg.get("scp", []):
                 dst = os.path.join(self.log_path, dst)
                 ssh = yield from vm.get_ssh()
