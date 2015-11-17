@@ -36,9 +36,9 @@ class RootTestCase(unittest.TestCase):
 
     def test_run_stop(self):
         self.set_timeout(2)
-        r = root.Root(self.loop)
+        r = root.Root(self.loop, "etc/fake.yaml", True)
         r.log = mock.Mock()
-        r.config = mock.Mock()
+        r.config = mock.MagicMock()
         r.config.iter_providers.return_value = []
         r.start_services = mock.Mock()
         fut = asyncio.async(r.run(), loop=self.loop)
