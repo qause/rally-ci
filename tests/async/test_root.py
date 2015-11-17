@@ -38,7 +38,8 @@ class RootTestCase(unittest.TestCase):
         self.set_timeout(2)
         r = root.Root(self.loop, "etc/fake.yaml", True)
         r.log = mock.Mock()
-        r.config = mock.MagicMock()
+        r.config = mock.Mock()
+        r._load_config = mock.Mock()
         r.config.iter_providers.return_value = []
         r.start_services = mock.Mock()
         fut = asyncio.async(r.run(), loop=self.loop)
